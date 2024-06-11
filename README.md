@@ -191,3 +191,6 @@ sudo apt-get install -y cuda-drivers-555
 
 To switch between NVIDIA Driver kernel module flavors see here.
 nvcc --version
+
+info:
+<https://www.linkedin.com/pulse/how-installuninstallmanage-nvidia-driver-cuda-ubuntu-2004-sutradhar-x4xwf/>
