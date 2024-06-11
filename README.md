@@ -1,5 +1,7 @@
 # NVIDIA 755M SLI on Ubuntu 22.04
 
+CUDA Version: 11.4
+
 ## Update Ubuntu
 
 ```bash
@@ -36,26 +38,16 @@ Run installer (you can download it from <https://www.nvidia.com/Download/index.a
   sudo ./NVIDIA-x86_64-418.113.run
 ```
 
-``bash
+```bash
   sudo reboot
-
 ```
 
 ```bash
 sudo apt-get install nvidia-driver-470
 ```
 
-``bash
-  sudo reboot
-
-```
-
-## Install remote desktop
-
 ```bash
-sudo apt install xrdp
-sudo systemctl enable xrdp
-sudo systemctl start xrdp
+  sudo reboot
 ```
 
 ### More commands that might be useful
@@ -163,3 +155,39 @@ sudo nvidia-ctk config --set nvidia-container-cli.no-cgroups --in-place
 sudo apt install nvidia-cuda-toolkit
 sudo reboot
 ```
+
+sudo nvidia-smi -i 0 -mig 0
+sudo nvidia-smi -i 0 --query-gpu=pci.bus_id,mig.mode.current --format=csv
+sudo reboot
+
+sudo nvidia-xconfig --enable-all-gpus
+
+download cuda installer
+<https://developer.nvidia.com/cuda-downloads?target_os=Linux&target_arch=x86_64&Distribution=Ubuntu&target_version=22.04>
+
+```bash
+wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-ubuntu2204.pin
+sudo mv cuda-ubuntu2204.pin /etc/apt/preferences.d/cuda-repository-pin-600
+wget https://developer.download.nvidia.com/compute/cuda/12.5.0/local_installers/cuda-repo-ubuntu2204-12-5-local_12.5.0-555.42.02-1_amd64.deb
+sudo dpkg -i cuda-repo-ubuntu2204-12-5-local_12.5.0-555.42.02-1_amd64.deb
+sudo cp /var/cuda-repo-ubuntu2204-12-5-local/cuda-*-keyring.gpg /usr/share/keyrings/
+sudo apt-get update
+sudo apt-get -y install cuda-toolkit-12-5
+```
+
+NVIDIA Driver Instructions (choose one option)
+To install the legacy kernel module flavor:
+
+```bash
+sudo apt-get install -y cuda-drivers
+```
+
+To install the open kernel module flavor:
+
+```bash
+sudo apt-get install -y nvidia-driver-555-open
+sudo apt-get install -y cuda-drivers-555
+```
+
+To switch between NVIDIA Driver kernel module flavors see here.
+nvcc --version
