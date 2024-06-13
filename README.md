@@ -2,11 +2,56 @@
 
 CUDA Version: 11.4
 
+SOLUTION
+Solved it thanks to reading the link provided by u/david279
+As they've figured out there exists no kernel modules of 5.17.5 for 470
+to keep using 470 one needs to revert back to old kernel
+
+Check the current kernel by uname -r
+
+Then switch to 5.16.19 with: sudo kernelstub -v -k /boot/vmlinuz-5.16.19-76051619-generic -i /boot/initrd.img-5.16.19-76051619-generic
+
+The weird problem I had is that even though I was on 5.16.19 and confirmed it with uname -r, IF the 5.17.5 kernel wasn't removed during the sudo apt install nvidia-driver-470 process the kernel would revert (I don't know a better term for it) back to 5.17.5.
+
+So if you want to use 470:
+
+Change kernel to an old one
+
+Remove new kernel 5.17.5
+
+Install nvidia driver and be happy
+
+I sincerely hope that I haven't messed up with the system while downgrading and uninstalling kernels. If anyone else have the same problem this would be it.
+
 ## Update Ubuntu
 
 ```bash
 sudo apt update
 sudo apt upgrade -y
+```
+
+## Downgrade kernel to 5.8
+
+```bash
+wget http://archive.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.0g-2ubuntu4_amd64.deb
+sudo dpkg -i libssl1.1_1.1.0g-2ubuntu4_amd64.deb
+```
+
+download patched driver for 5.8 kernel
+
+```bash
+sudo apt-get update
+sudo apt-get install git-lfs
+git lfs install
+
+git clone --depth 1 --filter=blob:none --sparse https://github.com/MeowIce/nvidia-legacy.git
+cd nvidia-legacy
+git sparse-checkout init --cone
+git sparse-checkout set 5.8
+
+git lfs pull --include "5.8/NVIDIA-Linux-x86_64-418.113-kernel-5.8.run"
+ls 5.8/NVIDIA-Linux-x86_64-418.113-kernel-5.8.run
+
 ```
 
 ## Remove existing NVIDIA driver
@@ -17,6 +62,9 @@ except the package nvidia-common all other packages should be purged.
 dpkg -l | grep -i nvidia
 
 sudo apt-get remove --purge '^nvidia-.*'
+sudo apt-get --purge remove "*cublas*" "cuda*" "nsight*" 
+sudo rm -rf /usr/local/cuda*
+
 sudo apt-get install ubuntu-desktop
 sudo rm /etc/X11/xorg.conf
 echo 'nouveau' | sudo tee -a /etc/modules
@@ -87,7 +135,7 @@ docker context use default
 check if nvidia drivers are enabled:
 
 ```bash
-udo docker run --rm --runtime=nvidia --gpus all ubuntu nvidia-smi
+sudo docker run --rm --runtime=nvidia --gpus all ubuntu nvidia-smi
 ```
 
 if you see similar error like this:
@@ -154,13 +202,13 @@ sudo nvidia-ctk config --set nvidia-container-cli.no-cgroups --in-place
 ```bash
 sudo apt install nvidia-cuda-toolkit
 sudo reboot
-```
 
 sudo nvidia-smi -i 0 -mig 0
 sudo nvidia-smi -i 0 --query-gpu=pci.bus_id,mig.mode.current --format=csv
 sudo reboot
 
 sudo nvidia-xconfig --enable-all-gpus
+```
 
 download cuda installer
 <https://developer.nvidia.com/cuda-downloads?target_os=Linux&target_arch=x86_64&Distribution=Ubuntu&target_version=22.04>
@@ -194,3 +242,5 @@ nvcc --version
 
 info:
 <https://www.linkedin.com/pulse/how-installuninstallmanage-nvidia-driver-cuda-ubuntu-2004-sutradhar-x4xwf/>
+
+sudo prime-select nvidia
