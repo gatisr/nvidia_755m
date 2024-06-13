@@ -1,246 +1,177 @@
-# NVIDIA 755M SLI on Ubuntu 22.04
+# NVIDIA 755M SLI on Ubuntu 22.04 with docker support
 
-CUDA Version: 11.4
+## Requirements
 
-SOLUTION
-Solved it thanks to reading the link provided by u/david279
-As they've figured out there exists no kernel modules of 5.17.5 for 470
-to keep using 470 one needs to revert back to old kernel
+This guide is for NVIDIA 755M SLI with latest available drivers and software at the time of writing.
 
-Check the current kernel by uname -r
+1. Ubuntu 22.04 (UEFI boot mode)
+2. Kernel 5.2
+3. GCC 9.X
+4. G++ 9.X
+5. CUDA 11.4
+6. NVIDIA Driver 470
+7. Docker
+8. NVIDIA Container Toolkit
 
-Then switch to 5.16.19 with: sudo kernelstub -v -k /boot/vmlinuz-5.16.19-76051619-generic -i /boot/initrd.img-5.16.19-76051619-generic
+## Downgrade kernel to 5.2
 
-The weird problem I had is that even though I was on 5.16.19 and confirmed it with uname -r, IF the 5.17.5 kernel wasn't removed during the sudo apt install nvidia-driver-470 process the kernel would revert (I don't know a better term for it) back to 5.17.5.
+1. Check current kernel version:
 
-So if you want to use 470:
+    ```bash
+    uname -r
+    ```
 
-Change kernel to an old one
+2. Install mainline kernels to manage kernel versions:
 
-Remove new kernel 5.17.5
+    ```bash
+    sudo apt install mainline
+    ```
 
-Install nvidia driver and be happy
+3. Open mainline kernel manager in UI, mark to show old kernels in settings, then install kernel 5.2.
 
-I sincerely hope that I haven't messed up with the system while downgrading and uninstalling kernels. If anyone else have the same problem this would be it.
+4. Reboot and select kernel 5.2 from grub menu (Advanced options for Ubuntu). _Note: If you don't see kernel 5.2 in the list, you might try to reboot and select it again._
 
-## Update Ubuntu
+__Note:__ You can now remove previous kernels to free up space and avoid confusion.
 
-```bash
-sudo apt update
-sudo apt upgrade -y
-```
+## Install GCC and G++
 
-## Downgrade kernel to 5.8
+1. Install build-essential package:
 
-```bash
-wget http://archive.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.0g-2ubuntu4_amd64.deb
-sudo dpkg -i libssl1.1_1.1.0g-2ubuntu4_amd64.deb
-```
+    ```bash
+    sudo apt install build-essential
+    ```
 
-download patched driver for 5.8 kernel
+2. Check installed versions:
 
-```bash
-sudo apt-get update
-sudo apt-get install git-lfs
-git lfs install
+    ```bash
+    sudo update-alternatives --config gcc
+    ```
 
-git clone --depth 1 --filter=blob:none --sparse https://github.com/MeowIce/nvidia-legacy.git
-cd nvidia-legacy
-git sparse-checkout init --cone
-git sparse-checkout set 5.8
+3. Install GCC 9 and G++ 9:
 
-git lfs pull --include "5.8/NVIDIA-Linux-x86_64-418.113-kernel-5.8.run"
-ls 5.8/NVIDIA-Linux-x86_64-418.113-kernel-5.8.run
+    ```bash
+    sudo apt install g++-9
+    sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 9
+    ```
 
-```
+4. Make sure you have the correct version:
 
-## Remove existing NVIDIA driver
+    ```bash
+    sudo update-alternatives --config gcc
+    ```
 
-except the package nvidia-common all other packages should be purged.
+## Install NVIDIA Driver 470
 
-```bash
-dpkg -l | grep -i nvidia
+1. Check if you have NVIDIA already installed and remove it:
 
-sudo apt-get remove --purge '^nvidia-.*'
-sudo apt-get --purge remove "*cublas*" "cuda*" "nsight*" 
-sudo rm -rf /usr/local/cuda*
+    ```bash
+      dpkg -l | grep -i nvidia
 
-sudo apt-get install ubuntu-desktop
-sudo rm /etc/X11/xorg.conf
-echo 'nouveau' | sudo tee -a /etc/modules
-```
+      sudo apt-get remove --purge '^nvidia-.*'
+      sudo apt-get --purge remove "*cublas*" "cuda*" "nsight*" 
+      sudo rm -rf /usr/local/cuda*
+    ```
 
-## Install NVIDIA drivers
+2. Reboot `sudo reboot`
 
-Latest drivers that support NVIDIA 755M are 418.113. You can install them by running:
+3. Install NVIDIA driver 470:
 
-```bash
-sudo apt install build-essential libglvnd-dev pkg-config
-```
+    ```bash
+    sudo apt update
+    sudo apt upgrade -y
+    sudo apt-get install nvidia-driver-470 -y
+    ```
 
-Run installer (you can download it from <https://www.nvidia.com/Download/index.aspx>):
+4. Reboot `sudo reboot`
 
-```bash
-  chmod +x NVIDIA-x86_64-418.113.run
-  sudo telinit 3
-  sudo ./NVIDIA-x86_64-418.113.run
-```
+__Note:__ If command `nvidia-smi` doesn't work, you might need to make theses changes:
 
-```bash
-  sudo reboot
-```
+1. Create a file `/etc/udev/rules.d/10-remove-nvidia-audio.rules`:
 
-```bash
-sudo apt-get install nvidia-driver-470
-```
+    ```bash
+    sudo vim /etc/udev/rules.d/10-remove-nvidia-audio.rules
+    ```
 
-```bash
-  sudo reboot
-```
+2. Add this line:
 
-### More commands that might be useful
+    ```
+    # This file prevents the nvidia audio drivers from being loaded
+    SUBSYSTEM=="sound", ATTRS{id="nvidia"}, RUN+="/bin/sh -c 'echo 1 > /sys$env{DEVPATH}/remove'"
+    ```
 
-nvidia.NVreg_PreserveVideoMemoryAllocations=1
+3. Reboot `sudo reboot`
 
-If you dont have this file, just create.
+## Install CUDA 11.4
 
-```bash
-sudo vim /etc/udev/rules.d/10-remove-nvidia-audio.rules
-```
+1. Go to cuda toolkit archive (<https://developer.nvidia.com/cuda-toolkit-archive>), select [version 11.4]([https://developer.nvidia.com/cuda-11-4-0-download-archive) and download the runfile for Ubuntu 20.04 and run it like instructed in the official documentation e.g.:
 
-then add this line
+    ```bash
+    wget https://developer.download.nvidia.com/compute/cuda/11.4.0/local_installers/cuda_11.4.0_470.42.01_linux.run
+    sudo sh cuda_11.4.0_470.42.01_linux.run
+    ```
 
-```
-ACTION=="add", KERNEL=="0000:01:00.1", SUBSYSTEM=="pci", RUN+="/bin/sh -c 'echo 1 > /sys/bus/pci/devices/0000:01:00.1/remove'"
-```
+2. Add the following lines to your `.bashrc`:
 
-type `:wq` then press enter to save and exit.
+    ```bash
+    export PATH=/usr/local/cuda-11.4/bin${PATH:+:${PATH}}
+    export LD_LIBRARY_PATH=/usr/local/cuda-11.4/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
+    ```
 
-### Install drivers for Docker support
+    You can do this by running:
 
-NVIDIA drivers sadly do not support docker desktop. So you need to use docker runtime and manage containers via terminal.
+    ```bash
+    vim ~/.bashrc
+    ```
 
-Check if docker runtime context is set to default:
+    and adding the lines at the end of the file. Exit by pressing `Esc` and typing `:wq` then press `Enter`.
 
-```bash
-docker context ls
-```
+3. Reboot `sudo reboot`
 
-Set default context as current:
+4. Test the installation:
 
-```bash
-docker context use default
-```
+    ```bash
+    nvcc --version
+    nvidia-smi
+    ```
 
-check if nvidia drivers are enabled:
+## Install NVIDIA Container Toolkit for Docker
 
-```bash
-sudo docker run --rm --runtime=nvidia --gpus all ubuntu nvidia-smi
-```
+1. install nvidia-container-toolkit:
 
-if you see similar error like this:
+    ```bash
+    sudo apt-get install -y nvidia-container-toolkit
+    ```
 
-```
-docker: Error response from daemon: could not select device driver "" with capabilities: [[gpu]].
-```
+2. Configure docker daemon to use nvidia runtime:
 
-then you need to install nvidia-container-toolkit by configure prod repo:
+    ```bash
+    sudo nvidia-ctk runtime configure --runtime=docker
+    ```
 
-```bash
-curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg \
-  && curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
-    sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
-    sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
-```
+3. Restart docker daemon:
 
-update package repository:
-
-```bash
-sudo apt-get update
-```
-
-install nvidia-container-toolkit:
-
-```bash
-sudo apt-get install -y nvidia-container-toolkit
-```
-
-Configure docker daemon to use nvidia runtime:
-
-```bash
-sudo nvidia-ctk runtime configure --runtime=docker
-```
-
-Restart docker daemon:
-
-```bash
-sudo systemctl restart docker
-```
+    ```bash
+    sudo systemctl restart docker
+    ```
 
 To configure the container runtime for Docker running in Rootless mode, follow these steps:
 
 1. Configure the container runtime by using the nvidia-ctk command:
 
-```bash
-nvidia-ctk runtime configure --runtime=docker --config=$HOME/.config/docker/daemon.json
-```
+    ```bash
+    nvidia-ctk runtime configure --runtime=docker --config=$HOME/.config/docker/daemon.json
+    ```
 
 2. Restart the Rootless Docker daemon:
 
-```bash
-systemctl --user restart docker
-```
+    ```bash
+    sudo systemctl restart docker
+    ```
 
 3. Configure /etc/nvidia-container-runtime/config.toml by using the sudo nvidia-ctk command:
 
-```bash
+    ```bash
+    sudo nvidia-ctk config --set nvidia-container-cli.no-cgroups --in-place
+    ```
+
 sudo nvidia-ctk config --set nvidia-container-cli.no-cgroups --in-place
-```
-
-### Install nvidia cuda toolkit
-
-```bash
-sudo apt install nvidia-cuda-toolkit
-sudo reboot
-
-sudo nvidia-smi -i 0 -mig 0
-sudo nvidia-smi -i 0 --query-gpu=pci.bus_id,mig.mode.current --format=csv
-sudo reboot
-
-sudo nvidia-xconfig --enable-all-gpus
-```
-
-download cuda installer
-<https://developer.nvidia.com/cuda-downloads?target_os=Linux&target_arch=x86_64&Distribution=Ubuntu&target_version=22.04>
-
-```bash
-wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-ubuntu2204.pin
-sudo mv cuda-ubuntu2204.pin /etc/apt/preferences.d/cuda-repository-pin-600
-wget https://developer.download.nvidia.com/compute/cuda/12.5.0/local_installers/cuda-repo-ubuntu2204-12-5-local_12.5.0-555.42.02-1_amd64.deb
-sudo dpkg -i cuda-repo-ubuntu2204-12-5-local_12.5.0-555.42.02-1_amd64.deb
-sudo cp /var/cuda-repo-ubuntu2204-12-5-local/cuda-*-keyring.gpg /usr/share/keyrings/
-sudo apt-get update
-sudo apt-get -y install cuda-toolkit-12-5
-```
-
-NVIDIA Driver Instructions (choose one option)
-To install the legacy kernel module flavor:
-
-```bash
-sudo apt-get install -y cuda-drivers
-```
-
-To install the open kernel module flavor:
-
-```bash
-sudo apt-get install -y nvidia-driver-555-open
-sudo apt-get install -y cuda-drivers-555
-```
-
-To switch between NVIDIA Driver kernel module flavors see here.
-nvcc --version
-
-info:
-<https://www.linkedin.com/pulse/how-installuninstallmanage-nvidia-driver-cuda-ubuntu-2004-sutradhar-x4xwf/>
-
-sudo prime-select nvidia
