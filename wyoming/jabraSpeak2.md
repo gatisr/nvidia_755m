@@ -1,6 +1,6 @@
 # Jabra speak2 55 - whyoming satellite
 
-## configure jabra
+## configure jabra (if device doesn't show up after install drivers with that comes wyoming)
 
 1. Check devices
 
