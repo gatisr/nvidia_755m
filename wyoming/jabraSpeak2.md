@@ -127,3 +127,9 @@ sudo systemctl restart wyoming-satellite
 sudo killall pipewire
 ```
 
+* kill processes that uses mic (replace `plughw:CARD=UC,DEV=0` with your hw id)
+
+```sh
+ps aux | grep '[a]record -D plughw:CARD=UC,DEV=0' | awk '{print $2}' | xargs -r sudo kill
+```
+
